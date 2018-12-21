@@ -56,6 +56,7 @@ webpackDevServerExtraArgs := Seq("--progress", "--color")
 webpackConfigFile in fastOptJS := Some(baseDirectory.value / "webpack.config.dev.js")
 
 webpackBundlingMode in fastOptJS := BundlingMode.LibraryOnly() // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
+webpackMonitoredDirectories += baseDirectory.value / "assets"
 
 // when running the "dev" alias, after every fastOptJS compile all artifacts are copied into
 // a folder which is served and watched by the webpack devserver.

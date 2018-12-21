@@ -110,11 +110,7 @@ class InputGroup(state: Signal[AppState],
   }
 }
 
-@JSImport("./my-module.js", JSImport.Namespace)
-@js.native
-object MyModule extends js.Object {
-  val someUuid: String = js.native
-}
+
 
 object V2
     extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"),
@@ -292,7 +288,7 @@ object V2
       }
       case CauseAlert =>
         println("CAUING ALERT")
-        println(MyModule.someUuid)
+        println(Obj.bar(2))
         (state, Nil)
     }
 
