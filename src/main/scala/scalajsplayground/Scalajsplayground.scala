@@ -160,9 +160,12 @@ object V2
   def renderHome(stateStream: L.Signal[AppState],
                  bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
     div(
-      "HELLLO",
+      div(
+        "HELLLO"
+      ),
       button(
-        onClick.mapTo(CauseAlert) --> bus
+        onClick.mapTo(CauseAlert) --> bus,
+        "Cause alert"
       ),
       div(
         height := "100px",
@@ -288,7 +291,9 @@ object V2
       }
       case CauseAlert =>
         println("CAUING ALERT")
-        println(Obj.bar(2))
+        println(Obj.v1())
+//        println(Obj2.bar2())
+//        println(MapRenderer.generate())
         (state, Nil)
     }
 

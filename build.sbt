@@ -49,14 +49,16 @@ npmDependencies in Compile += "uuid" -> "3.1.0"
 // https://github.com/scalacenter/scalajs-bundler/issues/180
 addCommandAlias("dev", "; compile; fastOptJS::startWebpackDevServer; devwatch; fastOptJS::stopWebpackDevServer")
 addCommandAlias("devwatch", "~; fastOptJS; copyFastOptJS")
+addCommandAlias("wp", "fastOptJS::webpack")
+addCommandAlias("copy", "copyFastOptJS")
 
 version in webpack := "4.16.1"
 version in startWebpackDevServer := "3.1.4"
 webpackDevServerExtraArgs := Seq("--progress", "--color")
-webpackConfigFile in fastOptJS := Some(baseDirectory.value / "webpack.config.dev.js")
+webpackConfigFile in fastOptJS := Some(baseDirectory.value/ "webpack.config.dev.js")
 
 webpackBundlingMode in fastOptJS := BundlingMode.LibraryOnly() // https://scalacenter.github.io/scalajs-bundler/cookbook.html#performance
-webpackMonitoredDirectories += baseDirectory.value / "assets"
+webpackMonitoredDirectories += (crossTarget in (Compile, fastOptJS)).value / "facades"
 
 // when running the "dev" alias, after every fastOptJS compile all artifacts are copied into
 // a folder which is served and watched by the webpack devserver.
@@ -65,6 +67,7 @@ lazy val copyFastOptJS = TaskKey[Unit]("copyFastOptJS", "Copy javascript files t
 copyFastOptJS := {
   val inDir = (crossTarget in (Compile, fastOptJS)).value
   val outDir = (crossTarget in (Compile, fastOptJS)).value / "dev"
+  
   val files = Seq(name.value.toLowerCase + "-fastopt-loader.js", name.value.toLowerCase + "-fastopt.js") map { p => (inDir / p, outDir / p) }
   IO.copy(files, overwrite = true, preserveLastModified = true, preserveExecutable = true)
 }
