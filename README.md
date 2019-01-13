@@ -26,4 +26,6 @@ you can close it by running `fastOptJS::stopWebpackDevServer` in sbt.
 ## Plan/TODO
 
 - Interop with JS
-- Effects <-- Looks easy enough.
+    - Inbound, check
+    - Outbound, semi check
+- Effects, Check

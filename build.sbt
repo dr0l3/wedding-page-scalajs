@@ -9,6 +9,7 @@ libraryDependencies ++= Seq(
   "com.raquo" %%% "laminar" % "0.5",
   "org.typelevel" %%% "cats-effect" % "1.1.0",
   "com.propensive" %%% "magnolia" % "0.10.0",
+  "io.surfkit" %%% "scalajs-google-maps" % "0.0.3-SNAPSHOT",
   "org.scalatest" %%% "scalatest" % "3.0.5" % Test
 ) ++ Seq(
   "io.circe" %%% "circe-core",
@@ -23,6 +24,7 @@ requiresDOM in Test := true
 scalaJSUseMainModuleInitializer := true
 scalaJSModuleKind := ModuleKind.CommonJSModule // configure Scala.js to emit a JavaScript module instead of a top-level script
 
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 scalacOptions ++=
   "-encoding" :: "UTF-8" ::
@@ -44,6 +46,8 @@ scalacOptions ++=
 
 
 npmDependencies in Compile += "uuid" -> "3.1.0"
+npmDependencies in Compile += "leaflet" -> "1.3.4"
+
 
 // hot reloading configuration:
 // https://github.com/scalacenter/scalajs-bundler/issues/180
@@ -51,6 +55,7 @@ addCommandAlias("dev", "; compile; fastOptJS::startWebpackDevServer; devwatch; f
 addCommandAlias("devwatch", "~; fastOptJS; copyFastOptJS")
 addCommandAlias("wp", "fastOptJS::webpack")
 addCommandAlias("copy", "copyFastOptJS")
+addCommandAlias("prod", "fullOptJS")
 
 version in webpack := "4.16.1"
 version in startWebpackDevServer := "3.1.4"
