@@ -19,8 +19,13 @@ import scalajsplayground.FormAnnotation._
 
 import scala.language.experimental.macros
 import scala.scalajs.js.annotation._
+import io.scalajs.nodejs._
+import io.scalajs.npm.aws._
+import io.scalajs.npm.aws.s3._
 
-
+import scala.concurrent.Future
+import scala.xml.Elem
+import scala.xml.factory.XMLLoader
 
 sealed trait Page {
   def prettyPrint: String
@@ -52,17 +57,15 @@ case object Play extends Page {
   override def prettyPrint: String = "Play"
 }
 
-case class S(
-              age: Int,
-              email: String,
-              name: String,
-              @Select(List(1.4F, 2.0F)) meh: Float,
-              @Select(List("foo", "bar")) stuff: String)
+case class S(age: Int,
+             email: String,
+             name: String,
+             @Select(List(1.4F, 2.0F)) meh: Float,
+             @Select(List("foo", "bar")) stuff: String)
 
 sealed trait IceCream
 case object Nougat extends IceCream
 case object Vanilla extends IceCream
-
 
 case class AppState(
     name: String,
@@ -78,13 +81,8 @@ case class AppState(
 
 object AppState {
 
-  val pics = List(
-    "https://docs.aws.amazon.com/AmazonS3/latest/dev/images/resource-based-policy.png",
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/AWS_Simple_Icons_Storage_Amazon_S3.svg/1024px-AWS_Simple_Icons_Storage_Amazon_S3.svg.png"
-  )
-
   def initial() = {
-    AppState("", "", 1, None, Home, "", pics, Nil, Nil)
+    AppState("", "", 1, None, Login, "", Nil, Nil, Nil)
   }
 }
 
@@ -107,15 +105,17 @@ case object CauseAlert extends AppActions
 case object InitializeMap extends AppActions
 case class MessageFromJS(message: String) extends AppActions
 case class AttemptedSubmit(s: S) extends AppActions
+case object FetchPictureLinks extends AppActions
+case class PicturesResponse(links: List[String]) extends AppActions
 
 @JSExportTopLevel("app")
-object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"), AppState.initial()) {
+object V2
+    extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"),
+                                         AppState.initial()) {
 
-  def renderMap(stateStream: L.Signal[AppState], bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
+  def renderMap(stateStream: L.Signal[AppState],
+                bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
     div(
-      h2(
-        "Vi skal gå fra kirken til Ecco"
-      ),
       div(
         id := "mapid",
         height := "500px"
@@ -151,20 +151,21 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
     )
   }
 
-  def renderProgram(stateStream: L.Signal[AppState], bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
+  def renderProgram(
+      stateStream: L.Signal[AppState],
+      bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
     val program = List(
-      "14:30 - 15:30" -> "Den kirkelige vielse",
-      "15:30 - 15:45" -> "Champagne og fælles billede foran kirken",
-      "17:00" -> "Velkomstsdrinks",
-      "17:30" -> "Middagen starter",
-      "??:??" -> "Der lukkes og slukkes"
+      ("14:30", "Kirkelig vielse", Some("Efter vielsen vil vi gerne tage et fælles billede ved kirken sammen med jer")),
+      ("17:00", "Bryllupsfesten starter på Ecco med velkomstdrinks", None),
+      ("17:30", "Vi går til bords", None),
+      ("Søndag omkring kl. 10", "Vi spiser morgenmad sammen", None)
     )
     div(
       className := "text-center",
       ul(
         className := "list-group justify-content-center",
         program.map {
-          case (time, activity) =>
+          case (time, activity, note) =>
             li(
               className := "list-group-item text-center",
               h5(
@@ -172,30 +173,49 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
               ),
               p(
                 activity
-              )
+              ),
+              note.map { str =>
+                p(
+                  str
+                )
+              }
             )
         }
       )
     )
   }
 
-  def renderInfo(stateStream: L.Signal[AppState], bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
+  def renderInfo(
+      stateStream: L.Signal[AppState],
+      bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
     div(
       div(
         className := "card",
         div(
           className := "card-body",
-          h5(
+          h3(
             className := "card-title",
             "Overnatning"
           ),
-          p(
+          h5(
             className := "card-text",
-            "Man kan overnatte på Ecco."
+            "Der er mulighed for at overnatte på Ecco Conference Center, og vi har reserveret værelser, så der er til alle."
           ),
-          p(
+          h5(
             className := "card-text",
-            "Det koster penge."
+            "Enkeltværelse: 785,-"
+          ),
+          h5(
+            className := "card-text",
+            "Dobbeltværelse 870,-"
+          ),
+          h5(
+            className := "card-text",
+            "Begge værelsespriser er inklusiv morgenmad. Hvis du gerne vil overnatte på feststedet, skal du senest den 1. april give besked til os. Ecco har bedt om en samlet faktura, og du skal derfor betale overnatningen via os. Så hvis du kunne tænke dig at overnatte, skal du overføre prisen for enkelt- eller dobbeltværelse til "
+          ),
+          h5(
+            className := "card-text",
+            "Mobilepay: 30 28 00 94"
           )
         )
       ),
@@ -203,17 +223,17 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
         className := "card",
         div(
           className := "card-body",
-          h5(
+          h3(
             className := "card-title",
-            "Toast master"
+            "Toastmaster"
           ),
-          p(
+          h5(
             className := "card-text",
             "Toastmasteren hedder Bjarke."
           ),
-          p(
+          h5(
             className := "card-text",
-            "Han er gommens lillebror."
+            "Han er gommens lillebror og kan træffes på følgende nummer 23 65 90 37."
           )
         )
       ),
@@ -221,20 +241,22 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
         className := "card",
         div(
           className := "card-body",
-          h5(
+          h3(
             className := "card-title",
             "Ønskeseddel"
           ),
-          p(
+          h5(
             className := "card-text",
-            "Vi har valgt at ligge vores ønskeseddel i Ønskeskyen så vi undgår alt for mange af de samme gaver ."
+            "Vi opretter en ønskeseddel i Ønskeskyen. Vi arbejder på sagen! Stay tuned :)"
           )
         )
       )
     )
   }
 
-  def renderPlay(stateStream: L.Signal[AppState], bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
+  def renderPlay(
+      stateStream: L.Signal[AppState],
+      bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
 
     div(
       Input.gen[S].create[AppActions](s => AttemptedSubmit(s), bus, Nil) match {
@@ -244,7 +266,9 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
     )
   }
 
-  override def view(stateStream: L.Signal[AppState], bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
+  override def view(
+      stateStream: L.Signal[AppState],
+      bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
     div(
       header(
         role := "banner",
@@ -263,7 +287,7 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
               id := "navbarNav",
               ul(
                 className := "navbar-nav",
-                List(Home, Program, Info, Kort, Billeder, Play).map { page =>
+                List(Home, Program, Info, Kort, Billeder).map { page =>
                   li(
                     className := s"nav-item",
                     a(
@@ -297,57 +321,215 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
     )
   }
 
-  def renderHome(stateStream: L.Signal[AppState], bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
+  def renderHome(
+      stateStream: L.Signal[AppState],
+      bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
     div(
       div(
-        "HELLLO"
-      ),
-      button(
-        onClick.mapTo(CauseAlert) --> bus,
-        "Cause alert"
-      ),
-      h1(
-        "MessageList"
-      ),
-      div(
-        children <-- stateStream.map(_.messages).map { msgList =>
-          msgList.map { str =>
-            div(str)
-          }
-        }
-      )
-    )
-  }
-
-  def renderLogin(stateStream: L.Signal[AppState], bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
-    form(
-      div(
-        className := "form-group",
-        label(
-          forId := "exampleInputPassword",
-          "Enter the magic key"
-        ),
-        input(
-          tpe := "password",
-          className := "form-control",
-          id := "exampleInputPassword",
-          inContext(node => onInput.mapTo(UpdatePasswordInput(node.ref.value)) --> bus),
-          placeholder := "Password"
+        className := "card",
+        div(
+          className := "card-body",
+          h5(
+            className := "card-title",
+            div(
+              className := "container",
+              div(
+                className := "row no-gutters",
+                div(
+                  className := "col-1",
+                  h5(
+                    className := "card-title",
+                    "Hvem:"
+                  )
+                ),
+                div(
+                  className := "col-6",
+                  div(
+                    className := "container",
+                    div(
+                      className := "row",
+                      h5(
+                        className := "card-text",
+                        "Sofie & Rune"
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+          )
         )
       ),
-      button(
-        tpe := "submit",
-        className := "btn btn-primary",
-        onClick.preventDefault.mapTo(AttemptLogin) --> bus,
-        "go"
+      div(
+        className := "card",
+        div(
+          className := "card-body",
+          h5(
+            className := "card-title",
+            div(
+              className := "container",
+              div(
+                className := "row no-gutters",
+                div(
+                  className := "col-1",
+                  h5(
+                    className := "card-title",
+                    "Hvad:"
+                  )
+                ),
+                div(
+                  className := "col-6",
+                  div(
+                    className := "container",
+                    div(
+                      className := "row",
+                      h5(
+                        className := "card-text",
+                        "Bryllup! :)"
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+          )
+        )
+      ),
+      div(
+        className := "card",
+        div(
+          className := "card-body",
+          div(
+            className := "container",
+            div(
+              className := "row no-gutters",
+              div(
+                className := "col-1",
+                h5(
+                  className := "card-title",
+                  "Hvornår:"
+                )
+              ),
+              div(
+                className := "col-6",
+                div(
+                  className := "container",
+                  div(
+                    className := "row",
+                    h5(
+                      className := "card-text",
+                      "3. august 2019 fra kl 14.30"
+                    )
+                  )
+                )
+              )
+            )
+          ),
+        )
+      ),
+//      div(
+//        className := "card",
+//        div(
+//          className := "card-body",
+//          h5(
+//            className := "card-title",
+//            "Hvor: Tønder Kristkirke, Kirkepladsen 4, 6270 Tønder"
+//          ),
+//          h5(
+//            className := "card-title",
+//            "Ecco Conference Center, Ecco Alleen 4, 6270 Tønder"
+//          )
+//        )
+//      ),
+      div(
+        className := "card",
+        div(
+          className := "card-body",
+          div(
+            className := "container",
+            div(
+              className := "row no-gutters",
+              div(
+                className := "col-1",
+                h5(
+                  className := "card-title",
+                  "Hvor:"
+                )
+              ),
+
+              div(
+                className := "col-6",
+                div(
+                  className := "container",
+                  div(
+                    className := "row",
+                    h5(
+                      className := "card-text",
+                      "Tønder Kristkirke - Kirkepladsen 4, 6270 Tønder"
+                    )
+                  ),
+                  div(
+                    className := "row",
+                    h5(
+                      className := "card-text",
+                      "og"
+                    )
+                  ),
+                  div(
+                    className := "row",
+                    h5(
+                      className := "card-text",
+                      "Ecco Conference Center - Ecco Alleen 4, 6270 Tønder"
+                    )
+                  ),
+                )
+              )
+            )
+          )
+        )
       )
     )
   }
 
-  def renderPictures(stateStream: L.Signal[AppState], bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
+  def renderLogin(
+      stateStream: L.Signal[AppState],
+      bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
+    div(
+      h1(
+        "Velkommen! :)"
+      ),
+      form(
+        div(
+          className := "form-group",
+          label(
+            forId := "exampleInputPassword",
+            "Enter the magic key"
+          ),
+          input(
+            tpe := "password",
+            className := "form-control",
+            id := "exampleInputPassword",
+            inContext(
+              node => onInput.mapTo(UpdatePasswordInput(node.ref.value)) --> bus),
+            placeholder := "Adgangskode"
+          )
+        ),
+        button(
+          tpe := "submit",
+          className := "btn btn-primary",
+          onClick.preventDefault.mapTo(AttemptLogin) --> bus,
+          "Fortsæt"
+        )
+      )
+    )
+  }
+
+  def renderPictures(
+      stateStream: L.Signal[AppState],
+      bus: L.WriteBus[AppActions]): ReactiveChildNode[dom.Element] = {
     div(
       h3(
-        "Når vi får billederne vil de komme her :)"
+        "Når vi får billederne efter bryllupet vil de komme ind her :)"
       ),
       div(
         id := "carousel",
@@ -359,7 +541,8 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
             linkList.zipWithIndex.map {
               case (imageLink, index) =>
                 div(
-                  className := s"""carousel-item ${if (index == 0) "active" else ""}""",
+                  className := s"""carousel-item ${if (index == 0) "active"
+                  else ""}""",
                   img(
                     src := imageLink
                   )
@@ -399,41 +582,55 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
     )
   }
 
-  override def update(state: AppState, action: AppActions): (AppState, List[IO[AppActions]]) = {
+  override def update(state: AppState,
+                      action: AppActions): (AppState, List[IO[AppActions]]) = {
 
     val res = action match {
       case NameUpdated(updatedName)   => (state.copy(name = updatedName), Nil)
       case OccupationChanged(updated) => (state.copy(occupation = updated), Nil)
       case HeaderClick                => (state.copy(clicks = state.clicks + 1), Nil)
       case FetchPost =>
-        (state, List(IO.fromFuture(IO(Ajax.get(s"http://jsonplaceholder.typicode.com/posts/${state.clicks}"))).map {
-          resp =>
-            PostResponse(decode[Post](resp.responseText))
-        }))
+        (state,
+         List(
+           IO.fromFuture(IO(Ajax.get(
+               s"http://jsonplaceholder.typicode.com/posts/${state.clicks}")))
+             .map { resp =>
+               PostResponse(decode[Post](resp.responseText))
+             }))
       case PostResponse(either) =>
         (state.copy(lastResponse = either.toOption), Nil)
       case NavigateToPage(page) =>
-        println(page)
         val actions = page match {
           case Kort => List(IO(InitializeMap))
           case _    => Nil
         }
-        println(actions)
         (state.copy(currentPage = page), actions)
       case UpdatePasswordInput(input) =>
         (state.copy(currentPassword = input), Nil)
       case AttemptLogin => {
         state.currentPage match {
           case Login =>
-            if (state.currentPassword == "SIMSAM")
+            if (state.currentPassword.toLowerCase == "greve")
               (state.copy(currentPage = Home), Nil)
             else (state, Nil)
           case _ => (state, Nil)
         }
       }
       case CauseAlert =>
-        println(Obj.v1())
-        (state, Nil)
+        val baseUrl = "http://wedding-pictures-2019.s3.amazonaws.com"
+        val fetchPictures = IO.fromFuture(IO(Ajax.get(
+          baseUrl)))
+          .map { resp =>
+            resp.responseXML.getElementsByTagName("Key")
+          }.map { nodeList =>
+          val itemCount = nodeList.length
+          val list = (0 until itemCount).map { i =>
+            val node = nodeList(i)
+            s"$baseUrl/${node.textContent}"
+          }
+          PicturesResponse(list.toList)
+        }
+        (state, List(fetchPictures))
       case InitializeMap =>
         val opts = google.maps.MapOptions(
           center = new LatLng(54.9418395, 8.8610071),
@@ -443,7 +640,8 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
           mapTypeControl = false
         )
 
-        val gmap = new google.maps.Map(dom.document.querySelector("#mapid"), opts)
+        val gmap =
+          new google.maps.Map(dom.document.querySelector("#mapid"), opts)
 
         val eccoPosition = new LatLng(54.933895, 8.842890)
         val churchPosition = new LatLng(54.936733, 8.870548)
@@ -453,7 +651,7 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
             position = churchPosition,
             animation = google.maps.Animation.BOUNCE,
             map = gmap,
-            title = "The church - the serious place"
+            title = "Kirken - the serious place"
           )
         )
 
@@ -466,16 +664,30 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
         )
         (state, Nil)
       case MessageFromJS(msg) =>
-        println(s"Message from js: ${msg}")
-        println(s"messages before: ${state.messages}")
         val messages = msg :: state.messages
-        println(s"messages after: ${messages}")
         (state.copy(messages = messages), Nil)
       case AttemptedSubmit(s) =>
         (state.copy(submits = s :: state.submits), Nil)
+
+      case FetchPictureLinks =>
+        val baseUrl = "http://wedding-pictures-2019.s3.amazonaws.com"
+        val fetchPictures = IO.fromFuture(IO(Ajax.get(
+          baseUrl)))
+          .map { resp =>
+            resp.responseXML.getElementsByTagName("Key")
+          }.map { nodeList =>
+          val itemCount = nodeList.length
+          val list = (0 until itemCount).map { i =>
+            val node = nodeList(i)
+            s"$baseUrl/${node.textContent}"
+          }
+          PicturesResponse(list.toList)
+        }
+        (state, List(fetchPictures))
+      case PicturesResponse(list) =>
+        (state.copy(imageLists = state.imageLists ++ list), Nil)
     }
 
-    println(s"$state +  $action -> $res")
     res
   }
 
@@ -485,6 +697,8 @@ object V2 extends ElmApp[AppState, AppActions](dom.document.querySelector("#app"
   def msg(input: String): Unit = {
     inbound(MessageFromJS(input))
   }
+
+  override def onLoad: List[AppActions] = List(FetchPictureLinks)
 
 }
 
@@ -510,13 +724,18 @@ abstract class ElmApp[S, A](container: dom.Element, initialState: S) {
     }
 
     render(container, view(stateStream, actionBus.writer))
+
+    onLoad.foreach(actionBus.writer.onNext)
   }
 
-  def view(stateStream: Signal[S], bus: WriteBus[A]): ReactiveChildNode[dom.Element]
+  def view(stateStream: Signal[S],
+           bus: WriteBus[A]): ReactiveChildNode[dom.Element]
   def update(state: S, action: A): (S, List[IO[A]])
   def subs(subs: List[EventStream[A]]): Unit
 
   def inbound(action: A): Unit = {
     actionBus.writer.onNext(action)
   }
+
+  def onLoad: List[A] = Nil
 }
