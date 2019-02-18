@@ -25,7 +25,30 @@ you can close it by running `fastOptJS::stopWebpackDevServer` in sbt.
 
 ## Plan/TODO
 
-- Interop with JS
-    - Inbound, check
-    - Outbound, semi check
-- Effects, Check
+- Billeder
+    - Set up AWS bucket [x]
+    - Create download link [x]
+- Info
+    - Overnatning
+        - Write text [x]
+        - Format text
+    - Toastmaster [x]
+        - Write text
+    - Ønskeseddel 
+        - Write text [x]
+        - Insert link
+
+- Home 
+    - Figure out content [x]
+- Navbar
+    - Change bgcolor
+    - Increased padding
+- Global
+    - Text size should be readable for old people
+- Login
+    - Fix layout, would like boxed layout
+    - Change text
+    - Disable site before logged in
+    - Add login
+- Billeder
+    - Center content

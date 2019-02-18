@@ -10,7 +10,9 @@ libraryDependencies ++= Seq(
   "org.typelevel" %%% "cats-effect" % "1.1.0",
   "com.propensive" %%% "magnolia" % "0.10.0",
   "io.surfkit" %%% "scalajs-google-maps" % "0.0.3-SNAPSHOT",
-  "org.scalatest" %%% "scalatest" % "3.0.5" % Test
+  "org.scalatest" %%% "scalatest" % "3.0.5" % Test,
+  "io.scalajs.npm" %%% "aws-s3" % "0.4.2"
+
 ) ++ Seq(
   "io.circe" %%% "circe-core",
   "io.circe" %%% "circe-generic",
@@ -25,6 +27,8 @@ scalaJSUseMainModuleInitializer := true
 scalaJSModuleKind := ModuleKind.CommonJSModule // configure Scala.js to emit a JavaScript module instead of a top-level script
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+resolvers += Resolver.sonatypeRepo("releases")
+
 
 scalacOptions ++=
   "-encoding" :: "UTF-8" ::
@@ -47,6 +51,7 @@ scalacOptions ++=
 
 npmDependencies in Compile += "uuid" -> "3.1.0"
 npmDependencies in Compile += "leaflet" -> "1.3.4"
+npmDependencies in Compile += "aws-sdk" -> "2.28.0"
 
 
 // hot reloading configuration:
